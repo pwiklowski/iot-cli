@@ -12,6 +12,8 @@
 #include "OICClient.h"
 #include "OICDeviceResource.h"
 
+#include <mutex>
+
 
 using namespace std;
 
@@ -23,6 +25,7 @@ pthread_t m_thread;
 
 
 void showHelp(){
+    cout << "g, get - get variable value. Usage: get device_id variable" << endl;
     cout << "h, help - show help" << endl;
     cout << "l, list - list device varaibles. Usage list device_id" << endl;
     cout << "s, scan - show available devices" << endl;
@@ -227,6 +230,43 @@ void list(String deviceId){
     }
 }
 
+void get(String deviceId, String variable){
+    OICDevice* dev = 0;
+    bool isNumber = String::isNumber(deviceId);
+    if (isNumber){
+        uint8_t i = String::parseNumber(deviceId);
+        if (i < m_devices.size()){
+            dev = m_devices.at(i);
+        }
+    }else{
+        dev = getDevice(deviceId);
+    }
+
+
+    if (dev == 0){
+        cout << "Error: unable to find device with this id." << endl;
+        return;
+    }
+
+    mutex m;
+    for (uint8_t i=0; i<dev->getResources()->size(); i++){
+        OICDeviceResource* v = dev->getResources()->at(i);
+        if (v->getHref() == variable){
+            m.lock();
+            v->get([&] (COAPPacket* response){
+                cbor cborResponse;
+                cbor::parse(&cborResponse, response->getPayload());
+                String cborString = cbor::toJsonString(&cborResponse);
+
+                cout << cborString.c_str() <<endl;
+                m.unlock();
+            });
+            break;
+        }
+    }
+
+    m.lock();
+}
 int main(int argc, char* argv[])
 {
     cout << "Welcome in IoT CLI" << endl;
@@ -260,6 +300,13 @@ int main(int argc, char* argv[])
                 continue;
             }
             list(params.at(1));
+        }
+        else if (params.at(0)== "g" || params.at(0) == "get"){
+            if (params.size() != 3){
+                cout << "Error: invalid number of arguments. Type 'help' for more info" << endl;
+                continue;
+            }
+            get(params.at(1), params.at(2));
         }
 
 
