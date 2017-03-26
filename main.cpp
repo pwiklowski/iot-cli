@@ -24,6 +24,7 @@ pthread_t m_thread;
 
 void showHelp(){
     cout << "h, help - show help" << endl;
+    cout << "l, list - list device varaibles. Usage list device_id" << endl;
     cout << "s, scan - show available devices" << endl;
     cout << "q, quit - close CLI" << endl;
 }
@@ -203,6 +204,29 @@ void send_packet(COAPPacket* packet){
     send_packet_addr(client, packet);
 }
 
+void list(String deviceId){
+    OICDevice* dev = 0;
+    bool isNumber = String::isNumber(deviceId);
+    if (isNumber){
+        uint8_t i = String::parseNumber(deviceId);
+        if (i < m_devices.size()){
+            dev = m_devices.at(i);
+        }
+    }else{
+        dev = getDevice(deviceId);
+    }
+
+
+    if (dev == 0){
+        cout << "Error: unable to find device with this id." << endl;
+        return;
+    }
+    for (uint8_t i=0; i<dev->getResources()->size(); i++){
+        OICDeviceResource* v = dev->getResources()->at(i);
+        cout << v->getHref().c_str() << endl;
+    }
+}
+
 int main(int argc, char* argv[])
 {
     cout << "Welcome in IoT CLI" << endl;
@@ -216,17 +240,28 @@ int main(int argc, char* argv[])
     while(1){
         cout << "> ";
         string line;
-        cin >> line;
+        getline(cin, line);
+
+        String s(line.c_str());
+        List<String> params = s.split(" ");
 
         if (line == "q" || line == "quit"){
             return 0;
         }
-        if (line == "h" || line == "help"){
+        else if (line == "h" || line == "help"){
             showHelp();
         }
-        if (line == "s" || line == "scan"){
+        else if (line == "s" || line == "scan"){
             scan();
         }
+        else if (params.at(0)== "l" || params.at(0) == "list"){
+            if (params.size() != 2){
+                cout << "Error: invalid number of arguments. Type 'help' for more info" << endl;
+                continue;
+            }
+            list(params.at(1));
+        }
+
 
 
 
