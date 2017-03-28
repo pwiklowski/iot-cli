@@ -224,9 +224,9 @@ void list(String deviceId){
         cout << "Error: unable to find device with this id." << endl;
         return;
     }
-    for (uint8_t i=0; i<dev->getResources()->size(); i++){
+    for (unsigned int i=0; i<dev->getResources()->size(); i++){
         OICDeviceResource* v = dev->getResources()->at(i);
-        cout << v->getHref().c_str() << endl;
+        cout << "[" << i <<"] " << v->getHref().c_str() << endl;
     }
 }
 
@@ -248,22 +248,36 @@ void get(String deviceId, String variable){
         return;
     }
 
-    mutex m;
-    for (uint8_t i=0; i<dev->getResources()->size(); i++){
-        OICDeviceResource* v = dev->getResources()->at(i);
-        if (v->getHref() == variable){
-            m.lock();
-            v->get([&] (COAPPacket* response){
-                cbor cborResponse;
-                cbor::parse(&cborResponse, response->getPayload());
-                String cborString = cbor::toJsonString(&cborResponse);
-
-                cout << cborString.c_str() <<endl;
-                m.unlock();
-            });
-            break;
+    OICDeviceResource* v = 0;
+    isNumber = String::isNumber(variable);
+    if (isNumber){
+        uint8_t i = String::parseNumber(variable);
+        if (i < dev->getResources()->size()){
+            v = dev->getResources()->at(i);
+        }
+    }else{
+        for (uint8_t i=0; i<dev->getResources()->size(); i++){
+            if (v->getHref() == variable){
+                v = dev->getResources()->at(i);
+            }
         }
     }
+
+    if (v == 0){
+        cout << "Error: unable to find variable with this id." << endl;
+        return;
+    }
+
+    mutex m;
+    m.lock();
+    v->get([&] (COAPPacket* response){
+        cbor cborResponse;
+        cbor::parse(&cborResponse, response->getPayload());
+        String cborString = cbor::toJsonString(&cborResponse);
+
+        cout << cborString.c_str() <<endl;
+        m.unlock();
+    });
 
     m.lock();
 }
